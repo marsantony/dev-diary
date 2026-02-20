@@ -1,0 +1,291 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: #f8f9fa;
+  color: #1a1a1a;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem;
+  background: #fff;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+header h1 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+#auth-section {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+#user-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+#user-info span {
+  color: #555;
+}
+
+#sign-out-btn {
+  background: none;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  color: #666;
+}
+
+#sign-out-btn:hover {
+  border-color: #999;
+  color: #333;
+}
+
+nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 2rem;
+  background: #fff;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.nav-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.nav-controls button {
+  background: none;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 0.25rem 0.75rem;
+  font-size: 1rem;
+  cursor: pointer;
+  color: #555;
+}
+
+.nav-controls button:hover:not(:disabled) {
+  background: #f0f0f0;
+  border-color: #bbb;
+}
+
+.nav-controls button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+#current-date {
+  font-size: 1rem;
+  font-weight: 500;
+  min-width: 8rem;
+  text-align: center;
+}
+
+.view-tabs {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.tab {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  color: #888;
+}
+
+.tab:hover {
+  color: #333;
+}
+
+.tab.active {
+  background: #f0f0f0;
+  border-color: #ddd;
+  color: #1a1a1a;
+  font-weight: 500;
+}
+
+main {
+  max-width: 48rem;
+  margin: 2rem auto;
+  padding: 0 1.5rem;
+}
+
+/* Session cards */
+.session-card {
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  padding: 1.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.session-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.session-time {
+  font-size: 0.8rem;
+  color: #888;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.session-id {
+  font-size: 0.7rem;
+  color: #bbb;
+  font-family: monospace;
+}
+
+.session-summary {
+  font-size: 0.95rem;
+  color: #333;
+}
+
+.session-details {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #f0f0f0;
+  font-size: 0.85rem;
+  color: #666;
+  line-height: 1.7;
+}
+
+/* Day summary */
+#day-summary {
+  margin-top: 1.5rem;
+  padding: 1.25rem;
+  background: #fafbfc;
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  border-left: 3px solid #4a9eff;
+}
+
+#day-summary h3 {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #555;
+  margin-bottom: 0.5rem;
+}
+
+#day-summary p {
+  font-size: 0.9rem;
+  color: #444;
+}
+
+#day-summary .day-details {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed #ddd;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+/* Weekly view */
+#weekly-content {
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+
+#weekly-content h2 {
+  font-size: 1.1rem;
+  margin-bottom: 1rem;
+  color: #333;
+}
+
+#weekly-content .markdown {
+  font-size: 0.9rem;
+  line-height: 1.8;
+}
+
+#weekly-content .markdown h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+
+#weekly-content .markdown ul {
+  padding-left: 1.25rem;
+}
+
+#weekly-content .markdown li {
+  margin-bottom: 0.25rem;
+}
+
+#weekly-content .weekly-details {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px dashed #ddd;
+}
+
+/* Empty state */
+#empty-state {
+  text-align: center;
+  padding: 4rem 1rem;
+  color: #999;
+}
+
+/* Private badge */
+.private-badge {
+  display: inline-block;
+  font-size: 0.65rem;
+  background: #e8f4fd;
+  color: #1976d2;
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+  margin-left: 0.5rem;
+  vertical-align: middle;
+  font-weight: 500;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  header {
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1rem;
+  }
+
+  nav {
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+  }
+
+  main {
+    padding: 0 1rem;
+    margin: 1rem auto;
+  }
+
+  .session-card {
+    padding: 1rem;
+  }
+}

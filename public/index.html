@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dev Diary</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <h1>Dev Diary</h1>
+    <div id="auth-section">
+      <div id="g_id_onload"
+        data-client_id=""
+        data-callback="onGoogleSignIn"
+        data-auto_prompt="false">
+      </div>
+      <div class="g_id_signin" data-type="standard" data-size="small" data-theme="outline"></div>
+      <div id="user-info" hidden>
+        <span id="user-name"></span>
+        <button id="sign-out-btn" onclick="signOut()">登出</button>
+      </div>
+    </div>
+  </header>
+
+  <nav>
+    <div class="nav-controls">
+      <button id="prev-btn" onclick="navigate(-1)" title="前一天">&larr;</button>
+      <span id="current-date">載入中...</span>
+      <button id="next-btn" onclick="navigate(1)" title="後一天">&rarr;</button>
+    </div>
+    <div class="view-tabs">
+      <button class="tab active" data-view="daily" onclick="switchView('daily')">每日摘要</button>
+      <button class="tab" data-view="weekly" onclick="switchView('weekly')">週報</button>
+    </div>
+  </nav>
+
+  <main>
+    <section id="daily-view">
+      <div id="sessions-list"></div>
+      <div id="day-summary"></div>
+    </section>
+
+    <section id="weekly-view" hidden>
+      <div id="weekly-content"></div>
+    </section>
+
+    <div id="empty-state" hidden>
+      <p>這天沒有對話紀錄。</p>
+    </div>
+  </main>
+
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="/app.js"></script>
+</body>
+</html>

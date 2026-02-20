@@ -1,0 +1,9 @@
+node_modules/
+.dev.vars
+.wrangler/
+.venv/
+__pycache__/
+*.pyc
+/tmp/
+scripts/.meta.json
+public/data/
