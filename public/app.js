@@ -171,19 +171,26 @@ function switchView(view) {
 // ── Google Sign-In ──
 
 function onGoogleSignIn(response) {
-  state.idToken = response.credential;
-  // 從 JWT payload 取得使用者名稱
-  const payload = JSON.parse(atob(response.credential.split(".")[1]));
-  state.userName = payload.name || payload.email;
+  try {
+    state.idToken = response.credential;
+    // 從 JWT payload 取得使用者名稱（base64url → base64 → UTF-8 decode）
+    const base64Url = response.credential.split(".")[1];
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+    const payload = JSON.parse(new TextDecoder().decode(bytes));
+    state.userName = payload.name || payload.email;
 
-  document.querySelector(".g_id_signin").hidden = true;
-  const userInfo = document.getElementById("user-info");
-  userInfo.hidden = false;
-  document.getElementById("user-name").textContent = state.userName;
+    document.querySelector(".g_id_signin").hidden = true;
+    const userInfo = document.getElementById("user-info");
+    userInfo.hidden = false;
+    document.getElementById("user-name").textContent = state.userName;
 
-  // 清除快取，重新載入完整版
-  state.privateCache = {};
-  loadCurrentDate();
+    // 清除快取，重新載入完整版
+    state.privateCache = {};
+    loadCurrentDate();
+  } catch (err) {
+    console.error("Google Sign-In callback error:", err);
+  }
 }
 
 function signOut() {

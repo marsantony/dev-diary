@@ -23,7 +23,7 @@ SYSTEM_PROMPT_PUBLIC = """\
 - 只寫「做了什麼」，不寫「怎麼做」
 - 不暴露：實作細節、架構設計、安全機制、速率限制、API URL、檔案路徑
 - 每個 session 一句話摘要
-- 最後一段是當日彙整（2-3 句）
+- 當日彙整 2-3 句，每句用換行（\\n）分隔
 - 如果 session 的 user_messages 太少或內容是純問答/閒聊，摘要可以很短
 
 輸出 JSON 格式：
@@ -31,7 +31,7 @@ SYSTEM_PROMPT_PUBLIC = """\
   "sessions": [
     {"id": "session_id", "time": "HH:MM", "summary": "一句話摘要"}
   ],
-  "daySummary": "當日彙整"
+  "daySummary": "第一句彙整\\n第二句彙整\\n第三句彙整"
 }
 """
 
@@ -42,16 +42,17 @@ SYSTEM_PROMPT_PRIVATE = """\
 - 使用繁體中文
 - 包含技術細節：修改了哪些檔案、用了什麼工具、架構決策
 - 包含 git 操作（commit、push、repo 建立等）
-- 每個 session 2-4 句詳細摘要
+- 每個 session 2-4 句詳細摘要，每句用換行（\\n）分隔
+- 當日彙整也用換行分隔重點
 - 最後一段是當日彙整（含技術重點）
 
 輸出 JSON 格式：
 {
   "sessions": [
-    {"id": "session_id", "time": "HH:MM", "summary": "簡短標題", "details": "詳細摘要"}
+    {"id": "session_id", "time": "HH:MM", "summary": "簡短標題", "details": "第一句摘要\\n第二句摘要\\n第三句摘要"}
   ],
   "daySummary": "當日彙整（簡潔版）",
-  "dayDetails": "當日彙整（含技術細節）"
+  "dayDetails": "技術重點一\\n技術重點二\\n技術重點三"
 }
 """
 

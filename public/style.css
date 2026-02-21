@@ -34,10 +34,13 @@ header h1 {
 }
 
 #user-info {
-  display: flex;
   align-items: center;
   gap: 0.5rem;
   font-size: 0.85rem;
+}
+
+#user-info:not([hidden]) {
+  display: flex;
 }
 
 #user-info span {
@@ -138,15 +141,15 @@ main {
   background: #fff;
   border: 1px solid #e8e8e8;
   border-radius: 8px;
-  padding: 1.25rem;
-  margin-bottom: 0.75rem;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1rem;
 }
 
 .session-header {
   display: flex;
   align-items: baseline;
   gap: 0.75rem;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
 }
 
 .session-time {
@@ -165,21 +168,24 @@ main {
 .session-summary {
   font-size: 0.95rem;
   color: #333;
+  line-height: 1.7;
+  white-space: pre-line;
 }
 
 .session-details {
-  margin-top: 0.5rem;
-  padding-top: 0.5rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
   border-top: 1px solid #f0f0f0;
-  font-size: 0.85rem;
-  color: #666;
-  line-height: 1.7;
+  font-size: 0.88rem;
+  color: #555;
+  line-height: 1.8;
+  white-space: pre-line;
 }
 
 /* Day summary */
 #day-summary {
-  margin-top: 1.5rem;
-  padding: 1.25rem;
+  margin-top: 2rem;
+  padding: 1.5rem;
   background: #fafbfc;
   border: 1px solid #e8e8e8;
   border-radius: 8px;
@@ -190,20 +196,24 @@ main {
   font-size: 0.85rem;
   font-weight: 600;
   color: #555;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
 }
 
 #day-summary p {
-  font-size: 0.9rem;
+  font-size: 0.92rem;
   color: #444;
+  line-height: 1.8;
+  white-space: pre-line;
 }
 
 #day-summary .day-details {
-  margin-top: 0.75rem;
-  padding-top: 0.75rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
   border-top: 1px dashed #ddd;
-  font-size: 0.85rem;
-  color: #666;
+  font-size: 0.88rem;
+  color: #555;
+  line-height: 1.8;
+  white-space: pre-line;
 }
 
 /* Weekly view */
