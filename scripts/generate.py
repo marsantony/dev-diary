@@ -28,7 +28,10 @@ def notify_discord(message: str):
         req = urllib.request.Request(
             DISCORD_WEBHOOK_URL,
             data=data,
-            headers={"Content-Type": "application/json"},
+            headers={
+                "Content-Type": "application/json",
+                "User-Agent": "dev-diary-bot",
+            },
         )
         urllib.request.urlopen(req, timeout=10)
     except Exception as e:
