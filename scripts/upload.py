@@ -97,15 +97,21 @@ def upload_all(
     index_file.write_text(json.dumps(index, ensure_ascii=False, indent=2))
     print(f"  [FILE] public/data/index.json updated ({len(all_dates)} dates)")
 
-    # 部署靜態頁面
-    print("\nDeploying to Cloudflare Pages...")
-    result = subprocess.run(
-        ["wrangler", "pages", "deploy", "./public", "--project-name=dev-diary"],
-        capture_output=True,
-        text=True,
-        cwd=PROJECT_DIR,
-    )
-    if result.returncode != 0:
-        print(f"  [ERROR] Deploy failed: {result.stderr[:300]}")
-    else:
-        print("  [OK] Deployed to Cloudflare Pages")
+    # 透過 git push 觸發 CI/CD 部署
+    print("\nPushing to GitHub (triggers CI/CD deploy)...")
+    dates_str = ", ".join(d["date"] for d in daily_public)
+    commit_msg = f"data: add daily summary for {dates_str}"
+
+    git_cmds = [
+        ["git", "add", "public/data/"],
+        ["git", "commit", "-m", commit_msg],
+        ["git", "push"],
+    ]
+    for cmd in git_cmds:
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, cwd=PROJECT_DIR
+        )
+        if result.returncode != 0:
+            print(f"  [ERROR] {' '.join(cmd)} failed: {result.stderr[:300]}")
+            return
+    print("  [OK] Pushed to GitHub → CI/CD will deploy")

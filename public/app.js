@@ -194,6 +194,7 @@ function onGoogleSignIn(response) {
 }
 
 function signOut() {
+  google.accounts.id.disableAutoSelect();
   state.idToken = null;
   state.userName = null;
   state.privateCache = {};
