@@ -97,11 +97,110 @@ nav {
   cursor: not-allowed;
 }
 
+.date-picker-wrapper {
+  position: relative;
+}
+
 #current-date {
   font-size: 1rem;
   font-weight: 500;
   min-width: 8rem;
   text-align: center;
+  cursor: pointer;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+}
+
+#current-date:hover {
+  background: #f0f0f0;
+}
+
+/* 日曆面板 */
+#calendar-panel {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  padding: 0.75rem;
+  z-index: 100;
+  width: 280px;
+}
+
+.cal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.cal-nav {
+  background: none;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 0.15rem 0.5rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: #555;
+}
+
+.cal-nav:hover {
+  background: #f0f0f0;
+}
+
+.cal-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-size: 0.7rem;
+  color: #999;
+  margin-bottom: 0.25rem;
+}
+
+.cal-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.cal-day {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  font-size: 0.8rem;
+  border-radius: 50%;
+  color: #ccc;
+  margin: 0 auto;
+}
+
+.cal-day.has-data {
+  color: #1a1a1a;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.cal-day.has-data:hover {
+  background: #e8f4fd;
+}
+
+.cal-day.today {
+  border: 1px solid #4a9eff;
+}
+
+.cal-day.selected {
+  background: #4a9eff;
+  color: #fff;
+}
+
+.cal-day.selected:hover {
+  background: #3a8eef;
 }
 
 .view-tabs {
@@ -180,6 +279,25 @@ main {
   color: #555;
   line-height: 1.8;
   white-space: pre-line;
+}
+
+/* Cross-day session */
+.cross-day-info {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed #e8e8e8;
+  font-size: 0.78rem;
+  color: #888;
+}
+
+.cross-day-link {
+  color: #4a9eff;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.cross-day-link:hover {
+  text-decoration: underline;
 }
 
 /* Day summary */

@@ -37,6 +37,7 @@ def upload_all(
     daily_private: list[dict],
     weekly_public: dict | None,
     weekly_private: dict | None,
+    session_dates: dict | None = None,
 ) -> bool:
     """上傳所有摘要到 Cloudflare。回傳是否全部成功。"""
     if not daily_public and not daily_private and not weekly_public:
@@ -94,7 +95,15 @@ def upload_all(
             set(existing_weekly + [weekly_public["weekEnd"]]), reverse=True
         )
 
-    index = {"dates": all_dates, "weeklyDates": weekly_dates}
+    # 合併跨日 session 資訊
+    existing_session_dates = {}
+    if index_file.exists():
+        existing = json.loads(index_file.read_text())
+        existing_session_dates = existing.get("sessionDates", {})
+    if session_dates:
+        existing_session_dates.update(session_dates)
+
+    index = {"dates": all_dates, "weeklyDates": weekly_dates, "sessionDates": existing_session_dates}
     index_file.write_text(json.dumps(index, ensure_ascii=False, indent=2))
     print(f"  [FILE] public/data/index.json updated ({len(all_dates)} dates)")
 

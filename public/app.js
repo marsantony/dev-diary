@@ -6,6 +6,7 @@ let state = {
   currentView: "daily",
   idToken: null,      // Google ID Token
   userName: null,
+  sessionDates: {},   // {sessionId: [dates]} 跨日 session 資訊
   // 快取：避免重複請求
   publicCache: {},
   privateCache: {},
@@ -20,7 +21,26 @@ async function init() {
     return;
   }
   state.dates = indexData.dates.sort();
+  state.sessionDates = indexData.sessionDates || {};
   state.currentIndex = state.dates.length - 1; // 預設最新一天
+
+  // 點擊日期文字開啟日曆
+  document.getElementById("current-date").addEventListener("click", toggleCalendar);
+  // 點擊日曆外部關閉
+  document.addEventListener("click", (e) => {
+    const cal = document.getElementById("calendar-panel");
+    const dateEl = document.getElementById("current-date");
+    if (cal && !cal.hidden && !cal.contains(e.target) && e.target !== dateEl) {
+      cal.hidden = true;
+    }
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      const cal = document.getElementById("calendar-panel");
+      if (cal) cal.hidden = true;
+    }
+  });
+
   await loadCurrentDate();
 }
 
@@ -101,6 +121,7 @@ async function loadWeekly(date) {
 function renderDaily(data) {
   const isPrivate = !!data.dayDetails;
   const badge = isPrivate ? '<span class="private-badge">完整版</span>' : "";
+  const currentDate = data.date || state.dates[state.currentIndex];
 
   // Sessions
   const sessionsHTML = (data.sessions || [])
@@ -109,6 +130,17 @@ function renderDaily(data) {
       if (s.details) {
         detailsHTML = `<div class="session-details">${escapeHTML(s.details)}</div>`;
       }
+
+      // 跨日標記
+      let crossDayHTML = "";
+      const otherDates = (state.sessionDates[s.id] || []).filter((d) => d !== currentDate);
+      if (otherDates.length > 0) {
+        const links = otherDates
+          .map((d) => `<a href="#" class="cross-day-link" data-date="${d}">${d}</a>`)
+          .join(", ");
+        crossDayHTML = `<div class="cross-day-info">跨日對話：${links}</div>`;
+      }
+
       return `
         <div class="session-card">
           <div class="session-header">
@@ -117,11 +149,25 @@ function renderDaily(data) {
           </div>
           <div class="session-summary">${escapeHTML(s.summary)}</div>
           ${detailsHTML}
+          ${crossDayHTML}
         </div>`;
     })
     .join("");
 
   document.getElementById("sessions-list").innerHTML = sessionsHTML;
+
+  // 綁定跨日連結點擊事件
+  document.querySelectorAll(".cross-day-link").forEach((link) => {
+    link.addEventListener("click", (e) => {
+      e.preventDefault();
+      const targetDate = e.target.dataset.date;
+      const idx = state.dates.indexOf(targetDate);
+      if (idx !== -1) {
+        state.currentIndex = idx;
+        loadCurrentDate();
+      }
+    });
+  });
 
   // Day summary
   let summaryHTML = `<h3>當日彙整${badge}</h3><p>${escapeHTML(data.daySummary || "")}</p>`;
@@ -144,6 +190,87 @@ function renderWeekly(data) {
   }
 
   document.getElementById("weekly-content").innerHTML = html;
+}
+
+// ── 日曆 ──
+
+function toggleCalendar() {
+  const panel = document.getElementById("calendar-panel");
+  if (panel.hidden) {
+    const currentDate = state.dates[state.currentIndex] || new Date().toISOString().slice(0, 10);
+    const [year, month] = currentDate.split("-").map(Number);
+    renderCalendar(year, month);
+    panel.hidden = false;
+  } else {
+    panel.hidden = true;
+  }
+}
+
+function renderCalendar(year, month) {
+  const panel = document.getElementById("calendar-panel");
+  const today = new Date().toISOString().slice(0, 10);
+  const datesSet = new Set(state.dates);
+
+  // 該月第一天與天數
+  const firstDay = new Date(year, month - 1, 1).getDay(); // 0=Sun
+  const daysInMonth = new Date(year, month, 0).getDate();
+
+  const monthNames = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"];
+
+  let html = `<div class="cal-header">
+    <button class="cal-nav" data-year="${month === 1 ? year - 1 : year}" data-month="${month === 1 ? 12 : month - 1}">&larr;</button>
+    <span>${year} 年 ${monthNames[month - 1]}</span>
+    <button class="cal-nav" data-year="${month === 12 ? year + 1 : year}" data-month="${month === 12 ? 1 : month + 1}">&rarr;</button>
+  </div>`;
+
+  html += `<div class="cal-weekdays"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div>`;
+  html += `<div class="cal-days">`;
+
+  // 空白填充
+  for (let i = 0; i < firstDay; i++) {
+    html += `<span class="cal-day empty"></span>`;
+  }
+
+  // 日期格
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    const hasData = datesSet.has(dateStr);
+    const isToday = dateStr === today;
+    const isSelected = dateStr === state.dates[state.currentIndex];
+
+    let cls = "cal-day";
+    if (hasData) cls += " has-data";
+    if (isToday) cls += " today";
+    if (isSelected) cls += " selected";
+
+    if (hasData) {
+      html += `<span class="${cls}" data-date="${dateStr}">${d}</span>`;
+    } else {
+      html += `<span class="${cls}">${d}</span>`;
+    }
+  }
+
+  html += `</div>`;
+  panel.innerHTML = html;
+
+  // 綁定事件
+  panel.querySelectorAll(".cal-day.has-data").forEach((el) => {
+    el.addEventListener("click", () => {
+      const idx = state.dates.indexOf(el.dataset.date);
+      if (idx !== -1) {
+        state.currentIndex = idx;
+        panel.hidden = true;
+        loadCurrentDate();
+      }
+    });
+  });
+
+  panel.querySelectorAll(".cal-nav").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      renderCalendar(Number(btn.dataset.year), Number(btn.dataset.month));
+    });
+  });
 }
 
 // ── 導航 ──

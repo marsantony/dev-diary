@@ -24,8 +24,25 @@ def clean_text(text: str) -> str:
     return text.strip()
 
 
-def extract_session(filepath: Path) -> dict | None:
-    """從單一 .jsonl 檔案提取 session 摘要資料。"""
+def _parse_msg_date(obj: dict) -> str | None:
+    """從一筆 .jsonl 記錄中提取台灣時間日期（YYYY-MM-DD）。"""
+    ts = obj.get("timestamp")
+    if not ts:
+        return None
+    try:
+        dt = datetime.fromisoformat(ts.replace("Z", "+00:00")).astimezone(TZ_TPE)
+        return dt.strftime("%Y-%m-%d")
+    except (ValueError, TypeError):
+        return None
+
+
+def extract_session(filepath: Path, date_filter: str | None = None) -> dict | None:
+    """從單一 .jsonl 檔案提取 session 摘要資料。
+
+    Args:
+        filepath: session 檔案路徑
+        date_filter: 若指定（"YYYY-MM-DD"），只提取該天的訊息
+    """
     user_messages = []
     tools_used = []
     files_edited = set()
@@ -33,6 +50,8 @@ def extract_session(filepath: Path) -> dict | None:
     session_id = filepath.stem[:8]
     first_timestamp = None
     message_count = 0
+    # 追蹤此 session 出現在哪些日期
+    seen_dates = set()
 
     with open(filepath) as f:
         for line in f:
@@ -42,8 +61,17 @@ def extract_session(filepath: Path) -> dict | None:
                 continue
 
             msg_type = obj.get("type")
+            msg_date = _parse_msg_date(obj)
 
-            # 取得 session 時間
+            # 記錄出現的日期
+            if msg_date:
+                seen_dates.add(msg_date)
+
+            # 如果有 date_filter，跳過不屬於該天的訊息
+            if date_filter and msg_date and msg_date != date_filter:
+                continue
+
+            # 取得 session 時間（符合 filter 的第一筆）
             if first_timestamp is None and obj.get("timestamp"):
                 first_timestamp = obj["timestamp"]
 
@@ -114,6 +142,7 @@ def extract_session(filepath: Path) -> dict | None:
         "tools_used": list(set(tools_used)),
         "files_edited": sorted(files_edited),
         "git_operations": git_operations,
+        "all_dates": sorted(seen_dates),
     }
 
 
@@ -135,7 +164,7 @@ def _get_session_date(filepath: Path) -> str | None:
 
 
 def extract_sessions_for_date(target_date: datetime) -> list[dict]:
-    """提取指定日期（台灣時間）的所有 session 資料。"""
+    """提取指定日期（台灣時間）的所有 session 資料，含跨日 session。"""
     sessions = []
 
     if not SESSION_DIR.exists():
@@ -144,11 +173,7 @@ def extract_sessions_for_date(target_date: datetime) -> list[dict]:
     target_date_str = target_date.strftime("%Y-%m-%d")
 
     for filepath in SESSION_DIR.glob("*.jsonl"):
-        session_date = _get_session_date(filepath)
-        if session_date != target_date_str:
-            continue
-
-        session = extract_session(filepath)
+        session = extract_session(filepath, date_filter=target_date_str)
         if session:
             sessions.append(session)
 

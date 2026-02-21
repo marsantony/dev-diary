@@ -184,14 +184,20 @@ def save_meta(last_daily: str, last_weekly: str | None = None):
     meta_file.write_text(json.dumps(meta, ensure_ascii=False, indent=2))
 
 
-def generate_daily(target_date: datetime) -> tuple[dict | None, dict | None]:
-    """產生指定日期的公開版和完整版摘要。"""
+def generate_daily(target_date: datetime) -> tuple[dict | None, dict | None, dict]:
+    """產生指定日期的公開版和完整版摘要。回傳 (public, private, session_dates_map)。"""
     sessions = extract_sessions_for_date(target_date)
     if not sessions:
-        return None, None
+        return None, None, {}
 
     date_str = target_date.strftime("%Y-%m-%d")
     print(f"  [{date_str}] {len(sessions)} sessions found, generating summaries...")
+
+    # 收集跨日 session 資訊：{session_id: [dates]}
+    session_dates_map = {}
+    for s in sessions:
+        if len(s.get("all_dates", [])) > 1:
+            session_dates_map[s["id"]] = s["all_dates"]
 
     # 準備輸入資料
     session_data = json.dumps(sessions, ensure_ascii=False, indent=2)
@@ -215,7 +221,7 @@ def generate_daily(target_date: datetime) -> tuple[dict | None, dict | None]:
         print(f"  [WARN] Private summary failed: {e}")
         private = None
 
-    return public, private
+    return public, private, session_dates_map
 
 
 def generate_weekly(
@@ -281,10 +287,11 @@ def main():
     # 逐天產生摘要
     all_public = []
     all_private = []
+    all_session_dates = {}  # {session_id: [dates]}
     last_processed = None
 
     for date in dates_to_process:
-        public, private = generate_daily(date)
+        public, private, session_dates_map = generate_daily(date)
         if public:
             all_public.append(public)
             # 儲存公開版到 public/data/
@@ -293,6 +300,9 @@ def main():
             out_file.write_text(json.dumps(public, ensure_ascii=False, indent=2))
         if private:
             all_private.append(private)
+        # 合併跨日 session 資訊
+        for sid, dates in session_dates_map.items():
+            all_session_dates[sid] = dates
         if public or private:
             last_processed = date.strftime("%Y-%m-%d")
 
@@ -315,7 +325,7 @@ def main():
 
     # 上傳到 Cloudflare（meta 在上傳成功後才更新，避免失敗時跳過補跑）
     from upload import upload_all
-    success = upload_all(all_public, all_private, weekly_public, weekly_private)
+    success = upload_all(all_public, all_private, weekly_public, weekly_private, all_session_dates)
 
     if success and last_processed:
         weekly_date = None

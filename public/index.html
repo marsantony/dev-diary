@@ -26,7 +26,10 @@
   <nav>
     <div class="nav-controls">
       <button id="prev-btn" onclick="navigate(-1)" title="前一天">&larr;</button>
-      <span id="current-date">載入中...</span>
+      <div class="date-picker-wrapper">
+        <span id="current-date" title="點擊開啟日曆">載入中...</span>
+        <div id="calendar-panel" hidden></div>
+      </div>
       <button id="next-btn" onclick="navigate(1)" title="後一天">&rarr;</button>
     </div>
     <div class="view-tabs">
