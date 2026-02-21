@@ -5,6 +5,8 @@ import os
 import re
 import subprocess
 import sys
+import traceback
+import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -14,6 +16,23 @@ from extract import extract_sessions_for_date
 TZ_TPE = timezone(timedelta(hours=8))
 PROJECT_DIR = Path(__file__).resolve().parent.parent
 PUBLIC_DATA_DIR = PROJECT_DIR / "public" / "data"
+DISCORD_WEBHOOK_URL = os.environ.get("DEV_DIARY_DISCORD_WEBHOOK", "")
+
+
+def notify_discord(message: str):
+    """發送 Discord webhook 通知。"""
+    if not DISCORD_WEBHOOK_URL:
+        return
+    try:
+        data = json.dumps({"content": message}).encode()
+        req = urllib.request.Request(
+            DISCORD_WEBHOOK_URL,
+            data=data,
+            headers={"Content-Type": "application/json"},
+        )
+        urllib.request.urlopen(req, timeout=10)
+    except Exception as e:
+        print(f"  [WARN] Discord notification failed: {e}")
 
 SYSTEM_PROMPT_PUBLIC = """\
 你是一個開發日誌產生器。根據提供的 Claude Code 對話 session 資料，產生「公開版」每日摘要。
@@ -291,8 +310,11 @@ def main():
                 out_file = PUBLIC_DATA_DIR / f"weekly-{week_end.strftime('%Y-%m-%d')}.json"
                 out_file.write_text(json.dumps(weekly_public, ensure_ascii=False, indent=2))
 
-    # 更新 meta
-    if last_processed:
+    # 上傳到 Cloudflare（meta 在上傳成功後才更新，避免失敗時跳過補跑）
+    from upload import upload_all
+    success = upload_all(all_public, all_private, weekly_public, weekly_private)
+
+    if success and last_processed:
         weekly_date = None
         if weekly_public:
             for date in dates_to_process:
@@ -300,12 +322,14 @@ def main():
                     weekly_date = date.strftime("%Y-%m-%d")
         save_meta(last_processed, weekly_date)
 
-    # 上傳到 Cloudflare
-    from upload import upload_all
-    upload_all(all_public, all_private, weekly_public, weekly_private)
-
     print(f"\nDone! Processed {len(all_public)} daily summaries.")
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception:
+        error_msg = traceback.format_exc()
+        print(f"[FATAL] {error_msg}")
+        notify_discord(f"❌ **dev-diary generate.py 失敗**\n```\n{error_msg[:1500]}\n```")
+        sys.exit(1)

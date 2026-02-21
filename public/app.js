@@ -223,6 +223,16 @@ async function fetchAPI(url) {
     const resp = await fetch(url, {
       headers: { Authorization: `Bearer ${state.idToken}` },
     });
+    if (resp.status === 401) {
+      // Token 過期，重置登入狀態
+      state.idToken = null;
+      state.userName = null;
+      state.privateCache = {};
+      document.querySelector(".g_id_signin").hidden = false;
+      document.getElementById("user-info").hidden = true;
+      console.warn("Token expired, switched to public view");
+      return null;
+    }
     if (!resp.ok) return null;
     return await resp.json();
   } catch {

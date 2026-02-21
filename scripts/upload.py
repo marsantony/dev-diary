@@ -8,8 +8,8 @@ PROJECT_DIR = Path(__file__).resolve().parent.parent
 KV_BINDING = "DEV_DIARY_KV"
 
 
-def kv_put(key: str, value: str):
-    """寫入 Cloudflare KV。"""
+def kv_put(key: str, value: str) -> bool:
+    """寫入 Cloudflare KV。回傳是否成功。"""
     result = subprocess.run(
         [
             "wrangler",
@@ -27,8 +27,9 @@ def kv_put(key: str, value: str):
     )
     if result.returncode != 0:
         print(f"  [ERROR] KV put failed for {key}: {result.stderr[:200]}")
-    else:
-        print(f"  [KV] {key} uploaded")
+        return False
+    print(f"  [KV] {key} uploaded")
+    return True
 
 
 def upload_all(
@@ -36,11 +37,11 @@ def upload_all(
     daily_private: list[dict],
     weekly_public: dict | None,
     weekly_private: dict | None,
-):
-    """上傳所有摘要到 Cloudflare。"""
+) -> bool:
+    """上傳所有摘要到 Cloudflare。回傳是否全部成功。"""
     if not daily_public and not daily_private and not weekly_public:
         print("No data to upload.")
-        return
+        return True
 
     print("\nUploading to Cloudflare KV...")
 
@@ -113,5 +114,6 @@ def upload_all(
         )
         if result.returncode != 0:
             print(f"  [ERROR] {' '.join(cmd)} failed: {result.stderr[:300]}")
-            return
+            return False
     print("  [OK] Pushed to GitHub → CI/CD will deploy")
+    return True
