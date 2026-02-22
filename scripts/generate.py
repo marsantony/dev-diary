@@ -121,14 +121,17 @@ def call_claude(system_prompt: str, user_content: str) -> str:
     # 移除 CLAUDECODE 環境變數，避免 CLI 拒絕在另一個 Claude Code session 內執行
     env.pop("CLAUDECODE", None)
 
-    result = subprocess.run(
-        ["claude", "--print", "--system-prompt", system_prompt],
-        input=user_content,
-        capture_output=True,
-        text=True,
-        env=env,
-        timeout=120,
-    )
+    try:
+        result = subprocess.run(
+            ["claude", "--print", "--system-prompt", system_prompt],
+            input=user_content,
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=300,
+        )
+    except subprocess.TimeoutExpired:
+        raise RuntimeError("claude CLI timed out after 300s")
     if result.returncode != 0:
         raise RuntimeError(f"claude CLI failed: {result.stderr.strip()}")
     return extract_json(result.stdout.strip())
@@ -325,7 +328,11 @@ def main():
             # 收集該週的 daily 摘要
             week_pub = [d for d in all_public if week_start.strftime("%Y-%m-%d") <= d["date"] <= week_end.strftime("%Y-%m-%d")]
             week_priv = [d for d in all_private if week_start.strftime("%Y-%m-%d") <= d["date"] <= week_end.strftime("%Y-%m-%d")]
-            weekly_public, weekly_private = generate_weekly(week_start, week_end, week_pub, week_priv)
+            try:
+                weekly_public, weekly_private = generate_weekly(week_start, week_end, week_pub, week_priv)
+            except RuntimeError as e:
+                print(f"  [WARN] Weekly report generation failed: {e}")
+                weekly_public, weekly_private = None, None
 
             if weekly_public:
                 out_file = PUBLIC_DATA_DIR / f"weekly-{week_end.strftime('%Y-%m-%d')}.json"
