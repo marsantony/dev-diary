@@ -6,4 +6,3 @@ __pycache__/
 *.pyc
 /tmp/
 scripts/.meta.json
-public/data/
