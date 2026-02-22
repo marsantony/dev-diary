@@ -254,7 +254,12 @@ async function toggleCrossDay(btn) {
 function toggleCalendar() {
   const panel = document.getElementById("calendar-panel");
   if (panel.hidden) {
-    const currentDate = state.dates[state.currentIndex] || new Date().toISOString().slice(0, 10);
+    let currentDate;
+    if (state.currentView === "weekly") {
+      currentDate = state.weeklyDates[state.weeklyIndex] || new Date().toISOString().slice(0, 10);
+    } else {
+      currentDate = state.dates[state.currentIndex] || new Date().toISOString().slice(0, 10);
+    }
     const [year, month] = currentDate.split("-").map(Number);
     renderCalendar(year, month);
     panel.hidden = false;
@@ -266,7 +271,11 @@ function toggleCalendar() {
 function renderCalendar(year, month) {
   const panel = document.getElementById("calendar-panel");
   const today = new Date().toISOString().slice(0, 10);
-  const datesSet = new Set(state.dates);
+  const isWeekly = state.currentView === "weekly";
+  const datesSet = new Set(isWeekly ? state.weeklyDates : state.dates);
+  const selectedDate = isWeekly
+    ? state.weeklyDates[state.weeklyIndex]
+    : state.dates[state.currentIndex];
 
   // 該月第一天與天數
   const firstDay = new Date(year, month - 1, 1).getDay(); // 0=Sun
@@ -293,7 +302,7 @@ function renderCalendar(year, month) {
     const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
     const hasData = datesSet.has(dateStr);
     const isToday = dateStr === today;
-    const isSelected = dateStr === state.dates[state.currentIndex];
+    const isSelected = dateStr === selectedDate;
 
     let cls = "cal-day";
     if (hasData) cls += " has-data";
@@ -313,11 +322,20 @@ function renderCalendar(year, month) {
   // 綁定事件
   panel.querySelectorAll(".cal-day.has-data").forEach((el) => {
     el.addEventListener("click", () => {
-      const idx = state.dates.indexOf(el.dataset.date);
-      if (idx !== -1) {
-        state.currentIndex = idx;
-        panel.hidden = true;
-        loadCurrentDate();
+      if (isWeekly) {
+        const idx = state.weeklyDates.indexOf(el.dataset.date);
+        if (idx !== -1) {
+          state.weeklyIndex = idx;
+          panel.hidden = true;
+          loadCurrentDate();
+        }
+      } else {
+        const idx = state.dates.indexOf(el.dataset.date);
+        if (idx !== -1) {
+          state.currentIndex = idx;
+          panel.hidden = true;
+          loadCurrentDate();
+        }
       }
     });
   });
