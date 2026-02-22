@@ -133,12 +133,13 @@ function renderDaily(data) {
 
       // 跨日標記
       let crossDayHTML = "";
-      const otherDates = (state.sessionDates[s.id] || []).filter((d) => d !== currentDate);
-      if (otherDates.length > 0) {
-        const links = otherDates
-          .map((d) => `<a href="#" class="cross-day-link" data-date="${d}">${d}</a>`)
-          .join(", ");
-        crossDayHTML = `<div class="cross-day-info">跨日對話：${links}</div>`;
+      const allDates = state.sessionDates[s.id] || [];
+      if (allDates.length > 1) {
+        const totalDays = allDates.length;
+        crossDayHTML = `<div class="cross-day-section">
+          <button class="cross-day-toggle" data-session-id="${escapeHTML(s.id)}" data-dates='${JSON.stringify(allDates)}'>跨日對話（${totalDays} 天）</button>
+          <div class="cross-day-expanded" id="cross-day-${escapeHTML(s.id)}" hidden></div>
+        </div>`;
       }
 
       return `
@@ -156,17 +157,9 @@ function renderDaily(data) {
 
   document.getElementById("sessions-list").innerHTML = sessionsHTML;
 
-  // 綁定跨日連結點擊事件
-  document.querySelectorAll(".cross-day-link").forEach((link) => {
-    link.addEventListener("click", (e) => {
-      e.preventDefault();
-      const targetDate = e.target.dataset.date;
-      const idx = state.dates.indexOf(targetDate);
-      if (idx !== -1) {
-        state.currentIndex = idx;
-        loadCurrentDate();
-      }
-    });
+  // 綁定跨日展開按鈕
+  document.querySelectorAll(".cross-day-toggle").forEach((btn) => {
+    btn.addEventListener("click", () => toggleCrossDay(btn));
   });
 
   // Day summary
@@ -190,6 +183,60 @@ function renderWeekly(data) {
   }
 
   document.getElementById("weekly-content").innerHTML = html;
+}
+
+// ── 跨日對話展開 ──
+
+async function toggleCrossDay(btn) {
+  const sessionId = btn.dataset.sessionId;
+  const container = document.getElementById(`cross-day-${sessionId}`);
+
+  // 收合
+  if (!container.hidden) {
+    container.hidden = true;
+    btn.classList.remove("expanded");
+    return;
+  }
+
+  // 展開：載入其他天的資料
+  const dates = JSON.parse(btn.dataset.dates);
+  btn.classList.add("expanded");
+  container.hidden = false;
+  container.innerHTML = '<div class="cross-day-loading">載入中...</div>';
+
+  let html = "";
+  for (const date of dates) {
+    // 抓取該天的資料（優先用快取）
+    let data = state.publicCache[date];
+    if (!data) {
+      data = await fetchJSON(`/data/daily-${date}.json`);
+      if (data) state.publicCache[date] = data;
+    }
+    if (state.idToken) {
+      let privateData = state.privateCache[date];
+      if (!privateData) {
+        privateData = await fetchAPI(`/api/summaries?type=daily&date=${date}`);
+        if (privateData) state.privateCache[date] = privateData;
+      }
+      if (privateData) data = privateData;
+    }
+    if (!data) continue;
+
+    // 找到同一個 session ID 的摘要
+    const session = (data.sessions || []).find((s) => s.id === sessionId);
+    if (!session) continue;
+
+    const summaryText = escapeHTML(session.summary);
+    const detailsText = session.details ? `<div class="cross-day-details">${escapeHTML(session.details)}</div>` : "";
+
+    html += `<div class="cross-day-entry">
+      <div class="cross-day-date">${escapeHTML(date)}</div>
+      <div class="cross-day-summary">${summaryText}</div>
+      ${detailsText}
+    </div>`;
+  }
+
+  container.innerHTML = html || '<div class="cross-day-loading">沒有找到其他天的摘要。</div>';
 }
 
 // ── 日曆 ──
