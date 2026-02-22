@@ -21,6 +21,7 @@ async function init() {
     return;
   }
   state.dates = indexData.dates.sort();
+  state.weeklyDates = (indexData.weeklyDates || []).sort();
   state.sessionDates = indexData.sessionDates || {};
   state.currentIndex = state.dates.length - 1; // 預設最新一天
 
@@ -93,11 +94,15 @@ async function loadWeekly(date) {
   document.getElementById("weekly-view").hidden = false;
   document.getElementById("empty-state").hidden = true;
 
-  // 找到包含 date 的最近一個週六（週報 key）
-  const weekEnd = findWeekEnd(date);
-  if (!weekEnd) {
-    document.getElementById("weekly-content").innerHTML = "<p>此日期範圍尚無週報。</p>";
-    return;
+  // 找到包含 date 的週六（週報 key）
+  let weekEnd = findWeekEnd(date);
+
+  // 如果該週六沒有週報，回退到最近的可用週報
+  if (!state.weeklyDates.includes(weekEnd)) {
+    const fallback = state.weeklyDates.filter((d) => d <= weekEnd).pop();
+    if (fallback) {
+      weekEnd = fallback;
+    }
   }
 
   let data;
@@ -109,7 +114,7 @@ async function loadWeekly(date) {
   }
 
   if (!data) {
-    document.getElementById("weekly-content").innerHTML = "<p>此日期範圍尚無週報。</p>";
+    document.getElementById("weekly-content").innerHTML = "<p>尚無週報資料。</p>";
     return;
   }
 
