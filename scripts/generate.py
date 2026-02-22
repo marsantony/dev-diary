@@ -238,11 +238,17 @@ def generate_weekly(
         f"  Generating weekly report: {week_start.strftime('%Y-%m-%d')} ~ {week_end.strftime('%Y-%m-%d')}..."
     )
 
+    ws = week_start.strftime("%Y-%m-%d")
+    we = week_end.strftime("%Y-%m-%d")
+
     # 公開版週報
     public_input = json.dumps(daily_public, ensure_ascii=False, indent=2)
     try:
         public_raw = call_claude(SYSTEM_PROMPT_WEEKLY_PUBLIC, public_input)
         public = json.loads(public_raw)
+        # 強制使用正確的日期範圍（不依賴 Claude 回傳的值）
+        public["weekStart"] = ws
+        public["weekEnd"] = we
     except (json.JSONDecodeError, RuntimeError) as e:
         print(f"  [WARN] Weekly public failed: {e}")
         public = None
@@ -252,6 +258,8 @@ def generate_weekly(
     try:
         private_raw = call_claude(SYSTEM_PROMPT_WEEKLY_PRIVATE, private_input)
         private = json.loads(private_raw)
+        private["weekStart"] = ws
+        private["weekEnd"] = we
     except (json.JSONDecodeError, RuntimeError) as e:
         print(f"  [WARN] Weekly private failed: {e}")
         private = None

@@ -415,14 +415,13 @@ async function fetchAPI(url) {
 }
 
 function findWeekEnd(date) {
-  // 找到 date 所在週的週六（週報以週六為 key）
+  // 找到 date 所在週的週六（週報以週六為 key，週日~週六為一週）
   const d = new Date(date + "T00:00:00+08:00");
   const day = d.getDay(); // 0=Sun, 6=Sat
-  const diff = 6 - day; // days until Saturday
+  // 週日(0)→往後6天到週六，週一(1)→往後5天，...週六(6)→當天
+  const diff = 6 - day;
   d.setDate(d.getDate() + diff);
-  const weekEnd = d.toISOString().slice(0, 10);
-  // 檢查是否有這個週報的日期存在（近似檢查）
-  return weekEnd;
+  return d.toISOString().slice(0, 10);
 }
 
 function showEmpty() {
