@@ -2,7 +2,9 @@
 
 let state = {
   dates: [],          // 可用日期列表
-  currentIndex: -1,   // 目前顯示的日期 index
+  weeklyDates: [],    // 可用週報日期列表（週六）
+  currentIndex: -1,   // 目前顯示的日期 index（daily 模式）
+  weeklyIndex: -1,    // 目前顯示的週報 index（weekly 模式）
   currentView: "daily",
   idToken: null,      // Google ID Token
   userName: null,
@@ -24,6 +26,7 @@ async function init() {
   state.weeklyDates = (indexData.weeklyDates || []).sort();
   state.sessionDates = indexData.sessionDates || {};
   state.currentIndex = state.dates.length - 1; // 預設最新一天
+  state.weeklyIndex = state.weeklyDates.length - 1; // 預設最新一週
 
   // 點擊日期文字開啟日曆
   document.getElementById("current-date").addEventListener("click", toggleCalendar);
@@ -48,14 +51,21 @@ async function init() {
 // ── 資料載入 ──
 
 async function loadCurrentDate() {
-  const date = state.dates[state.currentIndex];
-  document.getElementById("current-date").textContent = date;
-  updateNavButtons();
-
   if (state.currentView === "daily") {
+    const date = state.dates[state.currentIndex];
+    document.getElementById("current-date").textContent = date;
+    updateNavButtons();
     await loadDaily(date);
   } else {
-    await loadWeekly(date);
+    const weekEnd = state.weeklyDates[state.weeklyIndex];
+    if (weekEnd) {
+      const d = new Date(weekEnd + "T00:00:00+08:00");
+      d.setDate(d.getDate() - 6);
+      const weekStart = d.toISOString().slice(0, 10);
+      document.getElementById("current-date").textContent = `${weekStart} ~ ${weekEnd}`;
+    }
+    updateNavButtons();
+    await loadWeekly();
   }
 }
 
@@ -89,20 +99,15 @@ async function loadDaily(date) {
   renderDaily(data);
 }
 
-async function loadWeekly(date) {
+async function loadWeekly() {
   document.getElementById("daily-view").hidden = true;
   document.getElementById("weekly-view").hidden = false;
   document.getElementById("empty-state").hidden = true;
 
-  // 找到包含 date 的週六（週報 key）
-  let weekEnd = findWeekEnd(date);
-
-  // 如果該週六沒有週報，回退到最近的可用週報
-  if (!state.weeklyDates.includes(weekEnd)) {
-    const fallback = state.weeklyDates.filter((d) => d <= weekEnd).pop();
-    if (fallback) {
-      weekEnd = fallback;
-    }
+  const weekEnd = state.weeklyDates[state.weeklyIndex];
+  if (!weekEnd) {
+    document.getElementById("weekly-content").innerHTML = "<p>尚無週報資料。</p>";
+    return;
   }
 
   let data;
@@ -328,15 +333,26 @@ function renderCalendar(year, month) {
 // ── 導航 ──
 
 function navigate(delta) {
-  const newIndex = state.currentIndex + delta;
-  if (newIndex < 0 || newIndex >= state.dates.length) return;
-  state.currentIndex = newIndex;
+  if (state.currentView === "weekly") {
+    const newIndex = state.weeklyIndex + delta;
+    if (newIndex < 0 || newIndex >= state.weeklyDates.length) return;
+    state.weeklyIndex = newIndex;
+  } else {
+    const newIndex = state.currentIndex + delta;
+    if (newIndex < 0 || newIndex >= state.dates.length) return;
+    state.currentIndex = newIndex;
+  }
   loadCurrentDate();
 }
 
 function updateNavButtons() {
-  document.getElementById("prev-btn").disabled = state.currentIndex <= 0;
-  document.getElementById("next-btn").disabled = state.currentIndex >= state.dates.length - 1;
+  if (state.currentView === "weekly") {
+    document.getElementById("prev-btn").disabled = state.weeklyIndex <= 0;
+    document.getElementById("next-btn").disabled = state.weeklyIndex >= state.weeklyDates.length - 1;
+  } else {
+    document.getElementById("prev-btn").disabled = state.currentIndex <= 0;
+    document.getElementById("next-btn").disabled = state.currentIndex >= state.dates.length - 1;
+  }
 }
 
 function switchView(view) {
@@ -344,6 +360,20 @@ function switchView(view) {
   document.querySelectorAll(".tab").forEach((t) => {
     t.classList.toggle("active", t.dataset.view === view);
   });
+  // 切到週報時，找到包含當前日期的週報
+  if (view === "weekly") {
+    const currentDate = state.dates[state.currentIndex];
+    const weekEnd = findWeekEnd(currentDate);
+    // 找最接近的可用週報（<= 該週六）
+    let best = state.weeklyDates.length - 1;
+    for (let i = state.weeklyDates.length - 1; i >= 0; i--) {
+      if (state.weeklyDates[i] <= weekEnd) {
+        best = i;
+        break;
+      }
+    }
+    state.weeklyIndex = best;
+  }
   loadCurrentDate();
 }
 
