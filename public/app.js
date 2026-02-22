@@ -131,13 +131,13 @@ function renderDaily(data) {
         detailsHTML = `<div class="session-details">${escapeHTML(s.details)}</div>`;
       }
 
-      // 跨日標記
+      // 跨日標記：只算有資料的日期
       let crossDayHTML = "";
-      const allDates = state.sessionDates[s.id] || [];
-      if (allDates.length > 1) {
-        const totalDays = allDates.length;
+      const datesSet = new Set(state.dates);
+      const availableDates = (state.sessionDates[s.id] || []).filter((d) => datesSet.has(d));
+      if (availableDates.length > 1) {
         crossDayHTML = `<div class="cross-day-section">
-          <button class="cross-day-toggle" data-session-id="${escapeHTML(s.id)}" data-dates='${JSON.stringify(allDates)}'>跨日對話（${totalDays} 天）</button>
+          <button class="cross-day-toggle" data-session-id="${escapeHTML(s.id)}" data-dates='${JSON.stringify(availableDates)}'>跨日對話（${availableDates[0]} ~ ${availableDates[availableDates.length - 1]}）</button>
           <div class="cross-day-expanded" id="cross-day-${escapeHTML(s.id)}" hidden></div>
         </div>`;
       }
