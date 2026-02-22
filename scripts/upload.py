@@ -8,6 +8,27 @@ PROJECT_DIR = Path(__file__).resolve().parent.parent
 KV_BINDING = "DEV_DIARY_KV"
 
 
+def kv_get(key: str) -> str | None:
+    """從 Cloudflare KV 讀取。回傳值或 None。"""
+    result = subprocess.run(
+        [
+            "wrangler",
+            "kv",
+            "key",
+            "get",
+            f"--binding={KV_BINDING}",
+            key,
+            "--remote",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=PROJECT_DIR,
+    )
+    if result.returncode != 0:
+        return None
+    return result.stdout
+
+
 def kv_put(key: str, value: str) -> bool:
     """寫入 Cloudflare KV。回傳是否成功。"""
     result = subprocess.run(
