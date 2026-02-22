@@ -401,7 +401,15 @@ def main():
             weekly_date = weekly_public.get("weekEnd")
         save_meta(last_processed, weekly_date)
 
-    print(f"\nDone! Processed {len(all_public)} daily summaries.")
+    # === 成功通知 ===
+    parts = []
+    if all_public:
+        parts.append(f"每日 ×{len(all_public)}")
+    if weekly_public:
+        parts.append(f"週報 {weekly_public.get('weekStart', '?')}~{weekly_public.get('weekEnd', '?')}")
+    summary = "、".join(parts) if parts else "無新資料"
+    print(f"\nDone! {summary}")
+    notify_discord(f"✅ **dev-diary** — {summary}")
 
 
 if __name__ == "__main__":
