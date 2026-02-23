@@ -3,6 +3,7 @@
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import traceback
@@ -115,6 +116,22 @@ SYSTEM_PROMPT_WEEKLY_PRIVATE = """\
 """
 
 
+def _find_claude_cli() -> str:
+    """找到 claude CLI 的完整路徑，避免 PATH 不包含 ~/.local/bin 時找不到。"""
+    found = shutil.which("claude")
+    if found:
+        return found
+    fallback = Path.home() / ".local" / "bin" / "claude"
+    if fallback.is_file():
+        return str(fallback)
+    raise FileNotFoundError(
+        "找不到 claude CLI。請確認已安裝且位於 PATH 或 ~/.local/bin/ 中。"
+    )
+
+
+CLAUDE_CLI = _find_claude_cli()
+
+
 def call_claude(system_prompt: str, user_content: str) -> str:
     """呼叫 claude --print CLI 產生摘要（使用 Claude 訂閱，不需 API key）。"""
     env = os.environ.copy()
@@ -123,7 +140,7 @@ def call_claude(system_prompt: str, user_content: str) -> str:
 
     try:
         result = subprocess.run(
-            ["claude", "--print", "--system-prompt", system_prompt],
+            [CLAUDE_CLI, "--print", "--system-prompt", system_prompt],
             input=user_content,
             capture_output=True,
             text=True,
