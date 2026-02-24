@@ -129,18 +129,17 @@ def _find_claude_cli() -> str:
     )
 
 
-CLAUDE_CLI = _find_claude_cli()
-
-
 def call_claude(system_prompt: str, user_content: str) -> str:
     """呼叫 claude --print CLI 產生摘要（使用 Claude 訂閱，不需 API key）。"""
+    claude_cli = _find_claude_cli()
+
     env = os.environ.copy()
     # 移除 CLAUDECODE 環境變數，避免 CLI 拒絕在另一個 Claude Code session 內執行
     env.pop("CLAUDECODE", None)
 
     try:
         result = subprocess.run(
-            [CLAUDE_CLI, "--print", "--system-prompt", system_prompt],
+            [claude_cli, "--print", "--system-prompt", system_prompt],
             input=user_content,
             capture_output=True,
             text=True,
