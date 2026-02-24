@@ -331,10 +331,10 @@ def main():
     all_session_dates = {}  # {session_id: [dates]}
     last_processed = None
 
-    if start_date <= today:
+    if start_date < today:
         dates_to_process = []
         current = start_date
-        while current <= today:
+        while current < today:
             dates_to_process.append(current)
             current += timedelta(days=1)
 
