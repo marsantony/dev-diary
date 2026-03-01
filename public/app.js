@@ -69,19 +69,12 @@ async function loadCurrentDate() {
   }
 }
 
-async function loadDaily(date) {
-  document.getElementById("daily-view").hidden = false;
-  document.getElementById("weekly-view").hidden = true;
-  document.getElementById("empty-state").hidden = true;
-
-  // 先載入公開版
+async function loadDayData(date) {
   let data = state.publicCache[date];
   if (!data) {
     data = await fetchJSON(`/data/daily-${date}.json`);
     if (data) state.publicCache[date] = data;
   }
-
-  // 如果已登入，嘗試載入完整版
   if (state.idToken) {
     let privateData = state.privateCache[date];
     if (!privateData) {
@@ -90,7 +83,15 @@ async function loadDaily(date) {
     }
     if (privateData) data = privateData;
   }
+  return data;
+}
 
+async function loadDaily(date) {
+  document.getElementById("daily-view").hidden = false;
+  document.getElementById("weekly-view").hidden = true;
+  document.getElementById("empty-state").hidden = true;
+
+  const data = await loadDayData(date);
   if (!data) {
     showEmpty();
     return;
@@ -216,20 +217,7 @@ async function toggleCrossDay(btn) {
 
   let html = "";
   for (const date of dates) {
-    // 抓取該天的資料（優先用快取）
-    let data = state.publicCache[date];
-    if (!data) {
-      data = await fetchJSON(`/data/daily-${date}.json`);
-      if (data) state.publicCache[date] = data;
-    }
-    if (state.idToken) {
-      let privateData = state.privateCache[date];
-      if (!privateData) {
-        privateData = await fetchAPI(`/api/summaries?type=daily&date=${date}`);
-        if (privateData) state.privateCache[date] = privateData;
-      }
-      if (privateData) data = privateData;
-    }
+    const data = await loadDayData(date);
     if (!data) continue;
 
     // 找到同一個 session ID 的摘要
@@ -451,13 +439,8 @@ async function fetchAPI(url) {
       headers: { Authorization: `Bearer ${state.idToken}` },
     });
     if (resp.status === 401) {
-      // Token 過期，重置登入狀態
-      state.idToken = null;
-      state.userName = null;
-      state.privateCache = {};
-      document.querySelector(".g_id_signin").hidden = false;
-      document.getElementById("user-info").hidden = true;
       console.warn("Token expired, switched to public view");
+      signOut();
       return null;
     }
     if (!resp.ok) return null;

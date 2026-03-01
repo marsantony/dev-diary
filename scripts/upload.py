@@ -56,8 +56,8 @@ def kv_put(key: str, value: str) -> bool:
 def upload_all(
     daily_public: list[dict],
     daily_private: list[dict],
-    weekly_public: dict | None,
-    weekly_private: dict | None,
+    weekly_public: list[dict],
+    weekly_private: list[dict],
     session_dates: dict | None = None,
 ) -> bool:
     """上傳所有摘要到 Cloudflare。回傳是否全部成功。"""
@@ -77,50 +77,36 @@ def upload_all(
         kv_put(f"private:daily:{date}", json.dumps(priv, ensure_ascii=False))
 
     # 上傳週報
-    if weekly_public:
-        date = weekly_public.get("weekEnd", "")
+    for wp in weekly_public:
+        date = wp.get("weekEnd", "")
         if date:
-            kv_put(f"public:weekly:{date}", json.dumps(weekly_public, ensure_ascii=False))
+            kv_put(f"public:weekly:{date}", json.dumps(wp, ensure_ascii=False))
 
-    if weekly_private:
-        date = weekly_private.get("weekEnd", "")
+    for wp in weekly_private:
+        date = wp.get("weekEnd", "")
         if date:
-            kv_put(f"private:weekly:{date}", json.dumps(weekly_private, ensure_ascii=False))
+            kv_put(f"private:weekly:{date}", json.dumps(wp, ensure_ascii=False))
 
     # 更新 meta:latest
     meta = {
         "lastDaily": daily_public[-1]["date"] if daily_public else None,
-        "lastWeekly": weekly_public.get("weekEnd") if weekly_public else None,
+        "lastWeekly": weekly_public[-1].get("weekEnd") if weekly_public else None,
         "dates": [d["date"] for d in daily_public],
     }
     kv_put("meta:latest", json.dumps(meta, ensure_ascii=False))
 
     # 更新公開版日期索引（靜態 JSON）
     index_file = PROJECT_DIR / "public" / "data" / "index.json"
-    existing_dates = []
-    if index_file.exists():
-        existing = json.loads(index_file.read_text())
-        existing_dates = existing.get("dates", [])
+    existing = json.loads(index_file.read_text()) if index_file.exists() else {}
+    existing_dates = existing.get("dates", [])
+    existing_weekly = existing.get("weeklyDates", [])
+    existing_session_dates = existing.get("sessionDates", {})
 
     new_dates = [d["date"] for d in daily_public]
     all_dates = sorted(set(existing_dates + new_dates), reverse=True)
 
-    existing_weekly = []
-    if index_file.exists():
-        existing = json.loads(index_file.read_text())
-        existing_weekly = existing.get("weeklyDates", [])
-
-    weekly_dates = existing_weekly
-    if weekly_public and weekly_public.get("weekEnd"):
-        weekly_dates = sorted(
-            set(existing_weekly + [weekly_public["weekEnd"]]), reverse=True
-        )
-
-    # 合併跨日 session 資訊
-    existing_session_dates = {}
-    if index_file.exists():
-        existing = json.loads(index_file.read_text())
-        existing_session_dates = existing.get("sessionDates", {})
+    new_weekly_dates = [wp.get("weekEnd") for wp in weekly_public if wp.get("weekEnd")]
+    weekly_dates = sorted(set(existing_weekly + new_weekly_dates), reverse=True)
     if session_dates:
         existing_session_dates.update(session_dates)
 

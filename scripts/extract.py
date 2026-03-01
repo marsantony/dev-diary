@@ -30,7 +30,7 @@ def _parse_msg_date(obj: dict) -> str | None:
     if not ts:
         return None
     try:
-        dt = datetime.fromisoformat(ts.replace("Z", "+00:00")).astimezone(TZ_TPE)
+        dt = datetime.fromisoformat(ts).astimezone(TZ_TPE)
         return dt.strftime("%Y-%m-%d")
     except (ValueError, TypeError):
         return None
@@ -128,7 +128,7 @@ def extract_session(filepath: Path, date_filter: str | None = None) -> dict | No
     time_str = ""
     if first_timestamp:
         try:
-            dt = datetime.fromisoformat(first_timestamp.replace("Z", "+00:00"))
+            dt = datetime.fromisoformat(first_timestamp)
             dt_local = dt.astimezone(TZ_TPE)
             time_str = dt_local.strftime("%H:%M")
         except (ValueError, TypeError):
@@ -144,23 +144,6 @@ def extract_session(filepath: Path, date_filter: str | None = None) -> dict | No
         "git_operations": git_operations,
         "all_dates": sorted(seen_dates),
     }
-
-
-def _get_session_date(filepath: Path) -> str | None:
-    """取得 session 的日期（台灣時間），優先用第一筆 timestamp，fallback 用 mtime。"""
-    try:
-        with open(filepath) as f:
-            for line in f:
-                obj = json.loads(line)
-                ts = obj.get("timestamp")
-                if ts:
-                    dt = datetime.fromisoformat(ts.replace("Z", "+00:00")).astimezone(TZ_TPE)
-                    return dt.strftime("%Y-%m-%d")
-    except (json.JSONDecodeError, OSError):
-        pass
-    # fallback: 用 mtime
-    mtime = datetime.fromtimestamp(filepath.stat().st_mtime, tz=TZ_TPE)
-    return mtime.strftime("%Y-%m-%d")
 
 
 def extract_sessions_for_date(target_date: datetime) -> list[dict]:

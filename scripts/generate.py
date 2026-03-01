@@ -7,6 +7,7 @@ import subprocess
 import sys
 import traceback
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -166,6 +167,16 @@ def extract_json(text: str) -> str:
     return text
 
 
+def _call_and_parse(system_prompt: str, user_content: str, label: str) -> dict | None:
+    """呼叫 Claude CLI 並解析 JSON 回傳，失敗回傳 None。"""
+    try:
+        raw = call_claude(system_prompt, user_content)
+        return json.loads(raw)
+    except (json.JSONDecodeError, RuntimeError) as e:
+        print(f"  [WARN] {label} failed: {e}")
+        return None
+
+
 def get_last_generated_date() -> str | None:
     """從本地 meta 檔取得上次產生的日期。"""
     meta_file = PROJECT_DIR / "scripts" / ".meta.json"
@@ -206,23 +217,17 @@ def generate_daily(target_date: datetime) -> tuple[dict | None, dict | None, dic
     session_data = json.dumps(sessions, ensure_ascii=False, indent=2)
     user_content = f"日期：{date_str}\n\nSession 資料：\n{session_data}"
 
-    # 產生公開版
-    try:
-        public_raw = call_claude(SYSTEM_PROMPT_PUBLIC, user_content)
-        public = json.loads(public_raw)
-        public["date"] = date_str
-    except (json.JSONDecodeError, RuntimeError) as e:
-        print(f"  [WARN] Public summary failed: {e}")
-        public = None
+    # 並行產生公開版和完整版
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        pub_future = pool.submit(_call_and_parse, SYSTEM_PROMPT_PUBLIC, user_content, "Public summary")
+        priv_future = pool.submit(_call_and_parse, SYSTEM_PROMPT_PRIVATE, user_content, "Private summary")
+        public = pub_future.result()
+        private = priv_future.result()
 
-    # 產生完整版
-    try:
-        private_raw = call_claude(SYSTEM_PROMPT_PRIVATE, user_content)
-        private = json.loads(private_raw)
+    if public:
+        public["date"] = date_str
+    if private:
         private["date"] = date_str
-    except (json.JSONDecodeError, RuntimeError) as e:
-        print(f"  [WARN] Private summary failed: {e}")
-        private = None
 
     return public, private, session_dates_map
 
@@ -270,28 +275,23 @@ def generate_weekly(
     ws = week_start.strftime("%Y-%m-%d")
     we = week_end.strftime("%Y-%m-%d")
 
-    # 公開版週報
+    # 並行產生公開版和完整版週報
     public_input = json.dumps(daily_public, ensure_ascii=False, indent=2)
-    try:
-        public_raw = call_claude(SYSTEM_PROMPT_WEEKLY_PUBLIC, public_input)
-        public = json.loads(public_raw)
-        # 強制使用正確的日期範圍（不依賴 Claude 回傳的值）
+    private_input = json.dumps(daily_private, ensure_ascii=False, indent=2)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        pub_future = pool.submit(_call_and_parse, SYSTEM_PROMPT_WEEKLY_PUBLIC, public_input, "Weekly public")
+        priv_future = pool.submit(_call_and_parse, SYSTEM_PROMPT_WEEKLY_PRIVATE, private_input, "Weekly private")
+        public = pub_future.result()
+        private = priv_future.result()
+
+    # 強制使用正確的日期範圍（不依賴 Claude 回傳的值）
+    if public:
         public["weekStart"] = ws
         public["weekEnd"] = we
-    except (json.JSONDecodeError, RuntimeError) as e:
-        print(f"  [WARN] Weekly public failed: {e}")
-        public = None
-
-    # 完整版週報
-    private_input = json.dumps(daily_private, ensure_ascii=False, indent=2)
-    try:
-        private_raw = call_claude(SYSTEM_PROMPT_WEEKLY_PRIVATE, private_input)
-        private = json.loads(private_raw)
+    if private:
         private["weekStart"] = ws
         private["weekEnd"] = we
-    except (json.JSONDecodeError, RuntimeError) as e:
-        print(f"  [WARN] Weekly private failed: {e}")
-        private = None
 
     return public, private
 
@@ -349,8 +349,8 @@ def main():
         print("No new dates to process.")
 
     # === 週報生成（獨立於每日生成，掃描已有的每日資料找漏掉的週報） ===
-    weekly_public = None
-    weekly_private = None
+    all_weekly_public = []
+    all_weekly_private = []
 
     # 從 index.json 取得所有已有每日摘要的日期，找出需要產生週報的週六
     index_file = PUBLIC_DATA_DIR / "index.json"
@@ -380,33 +380,35 @@ def main():
 
                     print(f"  Generating missing weekly report for {we_str}...")
                     try:
-                        weekly_public, weekly_private = generate_weekly(week_start, week_end, week_pub, week_priv)
+                        wp, wpriv = generate_weekly(week_start, week_end, week_pub, week_priv)
                     except RuntimeError as e:
                         print(f"  [WARN] Weekly report generation failed: {e}")
-                        weekly_public, weekly_private = None, None
+                        wp, wpriv = None, None
 
-                    if weekly_public:
+                    if wp:
+                        all_weekly_public.append(wp)
                         out_file = PUBLIC_DATA_DIR / f"weekly-{we_str}.json"
-                        out_file.write_text(json.dumps(weekly_public, ensure_ascii=False, indent=2))
+                        out_file.write_text(json.dumps(wp, ensure_ascii=False, indent=2))
+                    if wpriv:
+                        all_weekly_private.append(wpriv)
 
                 scan += timedelta(days=1)
 
     # === 上傳到 Cloudflare ===
     from upload import upload_all
-    success = upload_all(all_public, all_private, weekly_public, weekly_private, all_session_dates)
+    success = upload_all(all_public, all_private, all_weekly_public, all_weekly_private, all_session_dates)
 
     if success and last_processed:
-        weekly_date = None
-        if weekly_public:
-            weekly_date = weekly_public.get("weekEnd")
+        weekly_date = all_weekly_public[-1].get("weekEnd") if all_weekly_public else None
         save_meta(last_processed, weekly_date)
 
     # === 成功通知 ===
     parts = []
     if all_public:
         parts.append(f"每日 ×{len(all_public)}")
-    if weekly_public:
-        parts.append(f"週報 {weekly_public.get('weekStart', '?')}~{weekly_public.get('weekEnd', '?')}")
+    if all_weekly_public:
+        for wp in all_weekly_public:
+            parts.append(f"週報 {wp.get('weekStart', '?')}~{wp.get('weekEnd', '?')}")
     summary = "、".join(parts) if parts else "無新資料"
     print(f"\nDone! {summary}")
     notify_discord(f"✅ **dev-diary** — {summary}")
