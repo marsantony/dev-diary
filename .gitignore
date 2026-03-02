@@ -7,3 +7,6 @@ __pycache__/
 /tmp/
 scripts/.meta.json
 .env
+.coverage
+htmlcov/
+.pytest_cache/
