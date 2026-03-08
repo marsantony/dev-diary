@@ -10,3 +10,6 @@ scripts/.meta.json
 .coverage
 htmlcov/
 .pytest_cache/
+
+# Claude Code working files
+tasks/
