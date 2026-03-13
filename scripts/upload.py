@@ -1,4 +1,4 @@
-"""推送摘要資料到 Cloudflare KV 和靜態頁面。"""
+"""推送摘要資料到 Cloudflare KV。"""
 
 import json
 import subprocess
@@ -59,6 +59,7 @@ def upload_all(
     weekly_public: list[dict],
     weekly_private: list[dict],
     session_dates: dict | None = None,
+    existing_meta: dict | None = None,
 ) -> bool:
     """上傳所有摘要到 Cloudflare。回傳是否全部成功。"""
     if not daily_public and not daily_private and not weekly_public:
@@ -87,20 +88,14 @@ def upload_all(
         if date:
             kv_put(f"private:weekly:{date}", json.dumps(wp, ensure_ascii=False))
 
-    # 更新 meta:latest
-    meta = {
-        "lastDaily": daily_public[-1]["date"] if daily_public else None,
-        "lastWeekly": weekly_public[-1].get("weekEnd") if weekly_public else None,
-        "dates": [d["date"] for d in daily_public],
-    }
-    kv_put("meta:latest", json.dumps(meta, ensure_ascii=False))
-
-    # 更新公開版日期索引（靜態 JSON）
-    index_file = PROJECT_DIR / "public" / "data" / "index.json"
-    existing = json.loads(index_file.read_text()) if index_file.exists() else {}
-    existing_dates = existing.get("dates", [])
-    existing_weekly = existing.get("weeklyDates", [])
-    existing_session_dates = existing.get("sessionDates", {})
+    # 更新 meta:latest（含完整索引，前端從 API 讀取）
+    if existing_meta is None:
+        raw = kv_get("meta:latest")
+        existing_meta = json.loads(raw) if raw else {}
+    meta_base = existing_meta or {}
+    existing_dates = meta_base.get("dates", [])
+    existing_weekly = meta_base.get("weeklyDates", [])
+    existing_session_dates = meta_base.get("sessionDates", {})
 
     new_dates = [d["date"] for d in daily_public]
     all_dates = sorted(set(existing_dates + new_dates), reverse=True)
@@ -110,26 +105,14 @@ def upload_all(
     if session_dates:
         existing_session_dates.update(session_dates)
 
-    index = {"dates": all_dates, "weeklyDates": weekly_dates, "sessionDates": existing_session_dates}
-    index_file.write_text(json.dumps(index, ensure_ascii=False, indent=2))
-    print(f"  [FILE] public/data/index.json updated ({len(all_dates)} dates)")
+    meta = {
+        "lastDaily": all_dates[0] if all_dates else None,
+        "lastWeekly": weekly_dates[0] if weekly_dates else None,
+        "dates": all_dates,
+        "weeklyDates": weekly_dates,
+        "sessionDates": existing_session_dates,
+    }
+    kv_put("meta:latest", json.dumps(meta, ensure_ascii=False))
+    print(f"  [KV] meta:latest updated ({len(all_dates)} dates)")
 
-    # 透過 git push 觸發 CI/CD 部署
-    print("\nPushing to GitHub (triggers CI/CD deploy)...")
-    dates_str = ", ".join(d["date"] for d in daily_public)
-    commit_msg = f"data: add daily summary for {dates_str}"
-
-    git_cmds = [
-        ["git", "add", "public/data/"],
-        ["git", "commit", "-m", commit_msg],
-        ["git", "push"],
-    ]
-    for cmd in git_cmds:
-        result = subprocess.run(
-            cmd, capture_output=True, text=True, cwd=PROJECT_DIR
-        )
-        if result.returncode != 0:
-            print(f"  [ERROR] {' '.join(cmd)} failed: {result.stderr[:300]}")
-            return False
-    print("  [OK] Pushed to GitHub → CI/CD will deploy")
     return True

@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
-from generate import extract_json, load_daily_summaries, PUBLIC_DATA_DIR
+from generate import extract_json, load_daily_summaries
 
 
 def test_extract_json_plain():
@@ -77,33 +77,32 @@ def test_extract_json_preserves_newlines_in_values():
     assert "\n" in parsed["summary"]
 
 
-def test_load_daily_summaries_from_disk(tmp_path):
-    """從磁碟讀回公開版每日摘要。"""
+def test_load_daily_summaries_from_kv():
+    """從 KV 讀回公開版和私密版每日摘要。"""
     from datetime import datetime, timedelta, timezone
 
     TZ = timezone(timedelta(hours=8))
     week_start = datetime(2026, 2, 16, tzinfo=TZ)
     week_end = datetime(2026, 2, 21, tzinfo=TZ)
 
-    # 建立假的 daily JSON 檔案
-    for day in range(16, 22):
-        date_str = f"2026-02-{day:02d}"
-        data = {"date": date_str, "daySummary": f"摘要 {date_str}"}
-        (tmp_path / f"daily-{date_str}.json").write_text(
-            json.dumps(data, ensure_ascii=False)
-        )
+    def mock_kv_get(key):
+        # 模擬 KV 中有公開版資料
+        for day in range(16, 22):
+            date_str = f"2026-02-{day:02d}"
+            if key == f"public:daily:{date_str}":
+                return json.dumps({"date": date_str, "daySummary": f"摘要 {date_str}"})
+        return None
 
-    with patch("generate.PUBLIC_DATA_DIR", tmp_path), \
-         patch("upload.kv_get", return_value=None):
+    with patch("upload.kv_get", side_effect=mock_kv_get):
         pub, priv = load_daily_summaries(week_start, week_end)
 
     assert len(pub) == 6
     assert pub[0]["date"] == "2026-02-16"
     assert pub[-1]["date"] == "2026-02-21"
-    assert len(priv) == 0  # KV 回傳 None
+    assert len(priv) == 0
 
 
-def test_load_daily_summaries_with_kv(tmp_path):
+def test_load_daily_summaries_with_private_kv():
     """從 KV 讀回私密版每日摘要。"""
     from datetime import datetime, timedelta, timezone
 
@@ -112,29 +111,13 @@ def test_load_daily_summaries_with_kv(tmp_path):
     week_end = datetime(2026, 2, 17, tzinfo=TZ)
 
     def mock_kv_get(key):
-        if "2026-02-16" in key:
+        if key == "private:daily:2026-02-16":
             return json.dumps({"date": "2026-02-16", "dayDetails": "詳細"})
         return None
 
-    with patch("generate.PUBLIC_DATA_DIR", tmp_path), \
-         patch("upload.kv_get", side_effect=mock_kv_get):
+    with patch("upload.kv_get", side_effect=mock_kv_get):
         pub, priv = load_daily_summaries(week_start, week_end)
 
-    assert len(pub) == 0  # 磁碟沒有檔案
+    assert len(pub) == 0
     assert len(priv) == 1
     assert priv[0]["date"] == "2026-02-16"
-
-
-def test_daily_skips_existing(tmp_path):
-    """每日摘要已存在時應跳過，不呼叫 generate_daily。"""
-    date_str = "2026-02-20"
-    data = {"date": date_str, "daySummary": "已存在的摘要"}
-    (tmp_path / f"daily-{date_str}.json").write_text(
-        json.dumps(data, ensure_ascii=False)
-    )
-
-    # 驗證檔案存在就跳過的邏輯
-    pub_file = tmp_path / f"daily-{date_str}.json"
-    assert pub_file.exists()
-    loaded = json.loads(pub_file.read_text())
-    assert loaded["daySummary"] == "已存在的摘要"

@@ -17,7 +17,7 @@ let state = {
 // ── 初始化 ──
 
 async function init() {
-  const indexData = await fetchJSON("/data/index.json");
+  const indexData = await fetchData("/api/summaries?type=list");
   if (!indexData || !indexData.dates || indexData.dates.length === 0) {
     showEmpty();
     return;
@@ -70,18 +70,12 @@ async function loadCurrentDate() {
 }
 
 async function loadDayData(date) {
-  let data = state.publicCache[date];
+  // 登入時讀完整版，未登入讀公開版，都走同一個 API（middleware 根據 token 決定回傳版本）
+  const cacheKey = state.idToken ? "privateCache" : "publicCache";
+  let data = state[cacheKey][date];
   if (!data) {
-    data = await fetchJSON(`/data/daily-${date}.json`);
-    if (data) state.publicCache[date] = data;
-  }
-  if (state.idToken) {
-    let privateData = state.privateCache[date];
-    if (!privateData) {
-      privateData = await fetchAPI(`/api/summaries?type=daily&date=${date}`);
-      if (privateData) state.privateCache[date] = privateData;
-    }
-    if (privateData) data = privateData;
+    data = await fetchData(`/api/summaries?type=daily&date=${date}`);
+    if (data) state[cacheKey][date] = data;
   }
   return data;
 }
@@ -111,13 +105,7 @@ async function loadWeekly() {
     return;
   }
 
-  let data;
-  if (state.idToken) {
-    data = await fetchAPI(`/api/summaries?type=weekly&date=${weekEnd}`);
-  }
-  if (!data) {
-    data = await fetchJSON(`/data/weekly-${weekEnd}.json`);
-  }
+  const data = await fetchData(`/api/summaries?type=weekly&date=${weekEnd}`);
 
   if (!data) {
     document.getElementById("weekly-content").innerHTML = "<p>尚無週報資料。</p>";
@@ -422,22 +410,13 @@ function signOut() {
 
 // ── API 與工具函式 ──
 
-async function fetchJSON(url) {
+async function fetchData(url) {
   try {
-    const resp = await fetch(url);
-    if (!resp.ok) return null;
-    return await resp.json();
-  } catch {
-    return null;
-  }
-}
-
-async function fetchAPI(url) {
-  if (!state.idToken) return null;
-  try {
-    const resp = await fetch(url, {
-      headers: { Authorization: `Bearer ${state.idToken}` },
-    });
+    const opts = {};
+    if (state.idToken) {
+      opts.headers = { Authorization: `Bearer ${state.idToken}` };
+    }
+    const resp = await fetch(url, opts);
     if (resp.status === 401) {
       console.warn("Token expired, switched to public view");
       signOut();

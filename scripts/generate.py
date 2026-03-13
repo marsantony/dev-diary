@@ -16,7 +16,6 @@ from extract import extract_sessions_for_date
 
 TZ_TPE = timezone(timedelta(hours=8))
 PROJECT_DIR = Path(__file__).resolve().parent.parent
-PUBLIC_DATA_DIR = PROJECT_DIR / "public" / "data"
 DISCORD_WEBHOOK_URL = os.environ.get("DEV_DIARY_DISCORD_WEBHOOK", "")
 
 
@@ -235,7 +234,7 @@ def generate_daily(target_date: datetime) -> tuple[dict | None, dict | None, dic
 def load_daily_summaries(
     week_start: datetime, week_end: datetime
 ) -> tuple[list[dict], list[dict]]:
-    """從磁碟讀公開版、從 KV 讀私密版每日摘要。"""
+    """從 KV 讀公開版和私密版每日摘要。"""
     from upload import kv_get
 
     public_list: list[dict] = []
@@ -243,17 +242,13 @@ def load_daily_summaries(
     current = week_start
     while current <= week_end:
         date_str = current.strftime("%Y-%m-%d")
-        # 公開版：從磁碟讀
-        pub_file = PUBLIC_DATA_DIR / f"daily-{date_str}.json"
-        if pub_file.exists():
-            public_list.append(json.loads(pub_file.read_text()))
-        # 私密版：從 KV 讀
-        priv_data = kv_get(f"private:daily:{date_str}")
-        if priv_data:
-            try:
-                private_list.append(json.loads(priv_data))
-            except json.JSONDecodeError:
-                print(f"  [WARN] Failed to parse private daily for {date_str}")
+        for prefix, target in [("public", public_list), ("private", private_list)]:
+            raw = kv_get(f"{prefix}:daily:{date_str}")
+            if raw:
+                try:
+                    target.append(json.loads(raw))
+                except json.JSONDecodeError:
+                    print(f"  [WARN] Failed to parse {prefix} daily for {date_str}")
         current += timedelta(days=1)
     return public_list, private_list
 
@@ -308,6 +303,12 @@ def main():
         # 首次執行，只處理今天
         start_date = today
 
+    # 一次性從 KV 讀取 meta:latest，供 skip-check 和週報掃描共用
+    from upload import kv_get
+    meta_raw = kv_get("meta:latest")
+    meta_data = json.loads(meta_raw) if meta_raw else {}
+    existing_kv_dates = set(meta_data.get("dates", []))
+
     # === 每日摘要生成 ===
     all_public = []
     all_private = []
@@ -326,19 +327,15 @@ def main():
         for date in dates_to_process:
             date_str = date.strftime("%Y-%m-%d")
 
-            # 已存在就跳過，不重複生成
-            pub_file = PUBLIC_DATA_DIR / f"daily-{date_str}.json"
-            if pub_file.exists():
-                print(f"  [{date_str}] already exists, skipping.")
+            # 已存在於 KV 就跳過（用 meta:latest 的 dates 判斷，避免 N+1 網路呼叫）
+            if date_str in existing_kv_dates:
+                print(f"  [{date_str}] already exists in KV, skipping.")
                 last_processed = date_str
                 continue
 
             public, private, session_dates_map = generate_daily(date)
             if public:
                 all_public.append(public)
-                PUBLIC_DATA_DIR.mkdir(parents=True, exist_ok=True)
-                out_file = PUBLIC_DATA_DIR / f"daily-{date_str}.json"
-                out_file.write_text(json.dumps(public, ensure_ascii=False, indent=2))
             if private:
                 all_private.append(private)
             for sid, dates in session_dates_map.items():
@@ -352,51 +349,47 @@ def main():
     all_weekly_public = []
     all_weekly_private = []
 
-    # 從 index.json 取得所有已有每日摘要的日期，找出需要產生週報的週六
-    index_file = PUBLIC_DATA_DIR / "index.json"
-    if index_file.exists():
-        index_data = json.loads(index_file.read_text())
-        all_daily_dates = sorted(index_data.get("dates", []))
-        if all_daily_dates:
-            first_date = datetime.strptime(all_daily_dates[0], "%Y-%m-%d").replace(tzinfo=TZ_TPE)
-            # 從第一筆每日摘要掃描到今天，找所有週六
-            scan = first_date
-            while scan <= today:
-                if scan.weekday() == 5:  # 週六
-                    week_end = scan
-                    week_start = scan - timedelta(days=6)
-                    we_str = week_end.strftime("%Y-%m-%d")
+    # 用先前取得的 meta_data 掃描需要產生週報的週六
+    all_daily_dates = sorted(existing_kv_dates | {d["date"] for d in all_public})
+    existing_weekly_dates = set(meta_data.get("weeklyDates", []))
 
-                    # 已有週報就跳過
-                    if (PUBLIC_DATA_DIR / f"weekly-{we_str}.json").exists():
-                        scan += timedelta(days=1)
-                        continue
+    if all_daily_dates:
+        first_date = datetime.strptime(all_daily_dates[0], "%Y-%m-%d").replace(tzinfo=TZ_TPE)
+        scan = first_date
+        while scan <= today:
+            if scan.weekday() == 5:  # 週六
+                week_end = scan
+                week_start = scan - timedelta(days=6)
+                we_str = week_end.strftime("%Y-%m-%d")
 
-                    # 從磁碟/KV 讀回整週的每日摘要
-                    week_pub, week_priv = load_daily_summaries(week_start, week_end)
-                    if not week_pub and not week_priv:
-                        scan += timedelta(days=1)
-                        continue
+                # 已有週報就跳過
+                if we_str in existing_weekly_dates:
+                    scan += timedelta(days=1)
+                    continue
 
-                    print(f"  Generating missing weekly report for {we_str}...")
-                    try:
-                        wp, wpriv = generate_weekly(week_start, week_end, week_pub, week_priv)
-                    except RuntimeError as e:
-                        print(f"  [WARN] Weekly report generation failed: {e}")
-                        wp, wpriv = None, None
+                # 從 KV 讀回整週的每日摘要
+                week_pub, week_priv = load_daily_summaries(week_start, week_end)
+                if not week_pub and not week_priv:
+                    scan += timedelta(days=1)
+                    continue
 
-                    if wp:
-                        all_weekly_public.append(wp)
-                        out_file = PUBLIC_DATA_DIR / f"weekly-{we_str}.json"
-                        out_file.write_text(json.dumps(wp, ensure_ascii=False, indent=2))
-                    if wpriv:
-                        all_weekly_private.append(wpriv)
+                print(f"  Generating missing weekly report for {we_str}...")
+                try:
+                    wp, wpriv = generate_weekly(week_start, week_end, week_pub, week_priv)
+                except RuntimeError as e:
+                    print(f"  [WARN] Weekly report generation failed: {e}")
+                    wp, wpriv = None, None
 
-                scan += timedelta(days=1)
+                if wp:
+                    all_weekly_public.append(wp)
+                if wpriv:
+                    all_weekly_private.append(wpriv)
+
+            scan += timedelta(days=1)
 
     # === 上傳到 Cloudflare ===
     from upload import upload_all
-    success = upload_all(all_public, all_private, all_weekly_public, all_weekly_private, all_session_dates)
+    success = upload_all(all_public, all_private, all_weekly_public, all_weekly_private, all_session_dates, meta_data)
 
     if success and last_processed:
         weekly_date = all_weekly_public[-1].get("weekEnd") if all_weekly_public else None

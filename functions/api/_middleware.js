@@ -23,10 +23,8 @@ export async function onRequest(context) {
   // 從 Authorization header 取得 token
   const authHeader = request.headers.get("Authorization");
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return new Response(JSON.stringify({ error: "未提供認證 token" }), {
-      status: 401,
-      headers: { "Content-Type": "application/json" },
-    });
+    // 無 token：放行，讓 handler 回傳公開版資料
+    return await context.next();
   }
 
   const token = authHeader.slice(7);

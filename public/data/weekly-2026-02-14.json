@@ -1,5 +1,0 @@
-{
-  "weekStart": "2026-02-08",
-  "weekEnd": "2026-02-14",
-  "summary": "## 新建專案\n\n- **Discord Claude Bot**：建立透過 Discord 操控 Claude Code 的機器人專案\n\n## 修復與強化\n\n- **TwitchSelfReply**：全面升級介面風格、新增頻道切換功能、強化自動化測試覆蓋率，並建立共用 OAuth 登入模組\n- **clean-new-tab**：修復多檔案上傳時僅部分生效的問題\n- **TwitchSelfReply**：發現並回報登入狀態檢查缺陷\n\n## 基礎建設\n\n- 整理並更新工作區目錄規範\n- 建立 GitHub Projects 自動化整合，讓所有 repo 的 Issue 與 PR 自動進入開發追蹤看板\n- 更新初始化專案工作流程與個人首頁內容\n\n## 學習研究\n\n- 評估即時字幕 Chrome Extension 的技術方向\n- 研究後端雲端服務費用最佳化策略"
-}

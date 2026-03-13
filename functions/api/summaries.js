@@ -42,7 +42,8 @@ export async function onRequestGet(context) {
     });
   }
 
-  const key = `private:${type}:${date}`;
+  const isAuthenticated = !!context.data.userEmail;
+  const key = `${isAuthenticated ? "private" : "public"}:${type}:${date}`;
   const data = await env.DEV_DIARY_KV.get(key, "json");
 
   if (!data) {
