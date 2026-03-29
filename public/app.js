@@ -143,7 +143,7 @@ function renderDaily(data) {
 
       const timeSavedHTML =
         s.estimated_manual_minutes > 0
-          ? `<span class="time-saved">省 ${s.estimated_manual_minutes}m</span>`
+          ? `<span class="time-saved">省 ${formatMinutes(s.estimated_manual_minutes)}</span>`
           : "";
 
       return `
@@ -173,10 +173,7 @@ function renderDaily(data) {
     summaryHTML += `<div class="day-details">${escapeHTML(data.dayDetails)}</div>`;
   }
   if (data.total_manual_minutes_saved > 0) {
-    const h = Math.floor(data.total_manual_minutes_saved / 60);
-    const m = data.total_manual_minutes_saved % 60;
-    const label = h > 0 ? `${h}h ${m}m` : `${m}m`;
-    summaryHTML += `<div class="day-time-saved">今日節省 ${label}</div>`;
+    summaryHTML += `<div class="day-time-saved">今日節省 ${formatMinutes(data.total_manual_minutes_saved)}</div>`;
   }
   document.getElementById("day-summary").innerHTML = summaryHTML;
 }
@@ -455,6 +452,12 @@ function showEmpty() {
   document.getElementById("daily-view").hidden = true;
   document.getElementById("weekly-view").hidden = true;
   document.getElementById("empty-state").hidden = false;
+}
+
+function formatMinutes(mins) {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
 function escapeHTML(str) {
