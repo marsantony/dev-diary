@@ -67,14 +67,17 @@ SYSTEM_PROMPT_PRIVATE = """\
 - 每個 session 2-4 句詳細摘要，每句用換行（\\n）分隔
 - 當日彙整也用換行分隔重點
 - 最後一段是當日彙整（含技術重點）
+- estimated_manual_minutes：估算「如果手動完成這個 session 的工作需要幾分鐘」（保守估計，整數）
+- total_manual_minutes_saved：所有 session 的 estimated_manual_minutes 加總
 
 輸出 JSON 格式：
 {
   "sessions": [
-    {"id": "session_id", "time": "HH:MM", "summary": "簡短標題", "details": "第一句摘要\\n第二句摘要\\n第三句摘要"}
+    {"id": "session_id", "time": "HH:MM", "summary": "簡短標題", "details": "第一句摘要\\n第二句摘要\\n第三句摘要", "estimated_manual_minutes": 30}
   ],
   "daySummary": "當日彙整（簡潔版）",
-  "dayDetails": "技術重點一\\n技術重點二\\n技術重點三"
+  "dayDetails": "技術重點一\\n技術重點二\\n技術重點三",
+  "total_manual_minutes_saved": 45
 }
 """
 

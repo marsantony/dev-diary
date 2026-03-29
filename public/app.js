@@ -141,11 +141,17 @@ function renderDaily(data) {
         </div>`;
       }
 
+      const timeSavedHTML =
+        s.estimated_manual_minutes > 0
+          ? `<span class="time-saved">省 ${s.estimated_manual_minutes}m</span>`
+          : "";
+
       return `
         <div class="session-card">
           <div class="session-header">
             <span class="session-time">${escapeHTML(s.time)}</span>
             <span class="session-id">${escapeHTML(s.id)}</span>
+            ${timeSavedHTML}
           </div>
           <div class="session-summary">${escapeHTML(s.summary)}</div>
           ${detailsHTML}
@@ -165,6 +171,12 @@ function renderDaily(data) {
   let summaryHTML = `<h3>當日彙整${badge}</h3><p>${escapeHTML(data.daySummary || "")}</p>`;
   if (data.dayDetails) {
     summaryHTML += `<div class="day-details">${escapeHTML(data.dayDetails)}</div>`;
+  }
+  if (data.total_manual_minutes_saved > 0) {
+    const h = Math.floor(data.total_manual_minutes_saved / 60);
+    const m = data.total_manual_minutes_saved % 60;
+    const label = h > 0 ? `${h}h ${m}m` : `${m}m`;
+    summaryHTML += `<div class="day-time-saved">今日節省 ${label}</div>`;
   }
   document.getElementById("day-summary").innerHTML = summaryHTML;
 }
